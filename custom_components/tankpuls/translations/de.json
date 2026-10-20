@@ -1,0 +1,95 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "TankPuls",
+        "description": "Optionaler API-Schlüssel (Format `<id>|<geheimnis>`). Ohne Schlüssel gelten die anonymen Limits je IP-Adresse, die für Home Assistant in der Regel ausreichen. Der kostenlose Community-Tarif (30 Anfragen/min, 10.000/Monat) ist oft *schlechter* als anonym.",
+        "data": { "api_key": "API-Schlüssel (optional)" }
+      },
+      "location": {
+        "title": "Tankstellen suchen",
+        "description": "Suche per Standort und Radius (max. 50 km) oder – falls ausgefüllt – per Postleitzahl.",
+        "data": { "location": "Standort und Radius", "postalcode": "Postleitzahl (optional)" }
+      },
+      "stations": {
+        "title": "Tankstellen auswählen",
+        "data": { "station_ids": "Tankstellen" }
+      },
+      "reconfigure": {
+        "title": "API-Schlüssel ändern",
+        "description": "Leer lassen, um anonym zu arbeiten.",
+        "data": { "api_key": "API-Schlüssel (optional)" }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur TankPuls-API fehlgeschlagen.",
+      "invalid_key": "Der API-Schlüssel wird von TankPuls nicht akzeptiert. Prüfe das Format oder lasse das Feld leer.",
+      "no_stations": "Keine Tankstellen gefunden. Erhöhe den Radius oder wähle einen anderen Standort.",
+      "postalcode_unknown": "Unbekannte Postleitzahl."
+    },
+    "abort": { "reconfigure_successful": "API-Schlüssel aktualisiert." }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TankPuls-Optionen",
+        "data": {
+          "scan_interval": "Abfrageintervall (Minuten)",
+          "show_on_map": "Tankstellen auf der Karte anzeigen",
+          "change_stations": "Tankstellen ändern"
+        }
+      },
+      "location": {
+        "title": "Tankstellen suchen",
+        "data": { "location": "Standort und Radius", "postalcode": "Postleitzahl (optional)" }
+      },
+      "stations": {
+        "title": "Tankstellen auswählen",
+        "data": { "station_ids": "Tankstellen" }
+      }
+    },
+    "error": {
+      "cannot_connect": "Verbindung zur TankPuls-API fehlgeschlagen.",
+      "no_stations": "Keine Tankstellen gefunden.",
+      "postalcode_unknown": "Unbekannte Postleitzahl."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "e5": { "name": "Super E5" },
+      "e10": { "name": "Super E10" },
+      "diesel": { "name": "Diesel" },
+      "latest_price_report": { "name": "Neueste Preismeldung" }
+    },
+    "binary_sensor": { "status": { "name": "Geöffnet" } }
+  },
+  "issues": {
+    "invalid_api_key": {
+      "title": "TankPuls-API-Schlüssel wird nicht akzeptiert",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "API-Schlüssel ersetzen oder entfernen",
+            "description": "TankPuls meldet für den Schlüssel den Status `{status}`. Die Abfragen laufen anonym weiter. Neuen Schlüssel eintragen oder das Feld leeren, um ohne Schlüssel zu arbeiten.",
+            "data": { "api_key": "API-Schlüssel (optional)" }
+          }
+        }
+      }
+    },
+    "station_gone": {
+      "title": "Tankstelle {station} nicht mehr verfügbar",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Tankstelle entfernen",
+            "description": "{station} ist stillgelegt oder unbekannt. Beim Bestätigen werden die Tankstelle samt Gerät und Entitäten entfernt."
+          }
+        }
+      }
+    },
+    "stale_data": {
+      "title": "Keine aktuellen Preismeldungen",
+      "description": "Seit über {hours} Stunden ist tagsüber keine neue Preismeldung für die konfigurierten Tankstellen eingegangen. Die Datenquelle (MTS-K über Tankerkönig) liefert möglicherweise veraltete Preise."
+    }
+  }
+}
