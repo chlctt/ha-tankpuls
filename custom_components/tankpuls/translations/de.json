@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "TankPuls",
-        "description": "Optionaler API-Schlüssel (Format `<id>|<geheimnis>`). Ohne Schlüssel gelten die anonymen Limits je IP-Adresse, die für Home Assistant in der Regel ausreichen. Der kostenlose Community-Tarif (30 Anfragen/min, 10.000/Monat) ist oft *schlechter* als anonym.",
+        "description": "Optionaler API-Schlüssel (Format `ID|Geheimnis`). Ohne Schlüssel gelten die anonymen Limits je IP-Adresse, die für Home Assistant in der Regel ausreichen. Der kostenlose Community-Tarif (30 Anfragen/min, 10.000/Monat) ist oft *schlechter* als anonym.",
         "data": { "api_key": "API-Schlüssel (optional)" }
       },
       "location": {

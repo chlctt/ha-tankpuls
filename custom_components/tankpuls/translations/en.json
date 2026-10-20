@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "TankPuls",
-        "description": "Optional API key (format `<id>|<secret>`). Without a key the anonymous per-IP limits apply, which are usually sufficient for Home Assistant. The free Community plan (30 requests/min, 10,000/month) is often *worse* than anonymous.",
+        "description": "Optional API key (format `ID|Secret`). Without a key the anonymous per-IP limits apply, which are usually sufficient for Home Assistant. The free Community plan (30 requests/min, 10,000/month) is often *worse* than anonymous.",
         "data": {
           "api_key": "API key (optional)"
         }
