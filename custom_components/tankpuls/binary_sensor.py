@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import (
+    BinarySensorDeviceClass,
+    BinarySensorEntity,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -25,6 +28,7 @@ async def async_setup_entry(
 class StationOpenSensor(TankpulsStationEntity, BinarySensorEntity):
     """On while the station is open."""
 
+    _attr_device_class = BinarySensorDeviceClass.DOOR
     _attr_translation_key = "status"
 
     def __init__(self, coordinator: TankpulsCoordinator, station_id: str) -> None:

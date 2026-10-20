@@ -59,6 +59,9 @@ async def test_entities(
     assert hass.states.get("sensor.esso_tankstelle_super_e5").state == "2.109"
     assert hass.states.get("sensor.esso_tankstelle_diesel").state == "2.159"
     assert hass.states.get("binary_sensor.esso_tankstelle_open").state == "on"
+    assert (
+        hass.states.get("binary_sensor.esso_tankstelle_open").attributes["device_class"] == "door"
+    )
     assert hass.states.get("sensor.tankpuls_latest_price_report").state != "unknown"
 
 
