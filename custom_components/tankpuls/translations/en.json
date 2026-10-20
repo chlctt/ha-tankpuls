@@ -1,0 +1,125 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "TankPuls",
+        "description": "Optional API key (format `ID|Secret`). Without a key the anonymous per-IP limits apply, which are usually sufficient for Home Assistant. The free Community plan (30 requests/min, 10,000/month) is often *worse* than anonymous.",
+        "data": {
+          "api_key": "API key (optional)"
+        }
+      },
+      "location": {
+        "title": "Find stations",
+        "description": "Search by position and radius (max. 50 km) or, if filled in, by postal code.",
+        "data": {
+          "location": "Location and radius",
+          "postalcode": "Postal code (optional)"
+        }
+      },
+      "stations": {
+        "title": "Select stations",
+        "data": {
+          "station_ids": "Stations"
+        }
+      },
+      "reconfigure": {
+        "title": "Change API key",
+        "description": "Leave empty to use the API anonymously.",
+        "data": {
+          "api_key": "API key (optional)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the TankPuls API.",
+      "invalid_key": "TankPuls does not accept this API key. Check the format or leave the field empty.",
+      "no_stations": "No stations found. Increase the radius or pick another location.",
+      "postalcode_unknown": "Unknown postal code."
+    },
+    "abort": {
+      "reconfigure_successful": "API key updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "TankPuls options",
+        "data": {
+          "scan_interval": "Update interval (minutes)",
+          "show_on_map": "Show stations on the map",
+          "change_stations": "Change stations"
+        }
+      },
+      "location": {
+        "title": "Find stations",
+        "data": {
+          "location": "Location and radius",
+          "postalcode": "Postal code (optional)"
+        }
+      },
+      "stations": {
+        "title": "Select stations",
+        "data": {
+          "station_ids": "Stations"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the TankPuls API.",
+      "no_stations": "No stations found.",
+      "postalcode_unknown": "Unknown postal code."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "e5": {
+        "name": "Super E5"
+      },
+      "e10": {
+        "name": "Super E10"
+      },
+      "diesel": {
+        "name": "Diesel"
+      },
+      "latest_price_report": {
+        "name": "Latest price report"
+      }
+    },
+    "binary_sensor": {
+      "status": {
+        "name": "Open"
+      }
+    }
+  },
+  "issues": {
+    "invalid_api_key": {
+      "title": "TankPuls API key is not accepted",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Replace or remove the API key",
+            "description": "TankPuls reports key status `{status}`. Requests continue anonymously. Enter a new key or clear the field to continue without one.",
+            "data": {
+              "api_key": "API key (optional)"
+            }
+          }
+        }
+      }
+    },
+    "station_gone": {
+      "title": "Station {station} is no longer available",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Remove station",
+            "description": "{station} was decommissioned or is unknown. Confirming removes the station including its device and entities."
+          }
+        }
+      }
+    },
+    "stale_data": {
+      "title": "No recent price reports",
+      "description": "No station has reported a new price for more than {hours} hours during the day. The data source (MTS-K via Tankerkönig) may be serving stale prices."
+    }
+  }
+}
