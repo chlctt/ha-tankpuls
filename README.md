@@ -59,6 +59,7 @@ Abweichung: Es gibt genau **einen** Eintrag (Key, Intervall) mit mehreren Tankst
 - Nur zur Verbraucherinformation; Nutzung durch die Mineralölwirtschaft und Weiterveräußerung der Rohdaten sind
   laut [AGB](https://tankpuls.de/agb.html#api) ausgeschlossen.
 - Inoffizielle Integration, nicht von TankPuls entwickelt.
+- Der Code steht unter der [MIT-Lizenz](LICENSE); sie gilt nicht für die abgerufenen Preisdaten (siehe oben).
 
 ## Entwicklung
 
