@@ -206,6 +206,24 @@ async def test_deselected_station_device_removed(
     assert registry.async_get_device(identifiers={(DOMAIN, ID_A)})
 
 
+async def test_adapts_interval_to_quota(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A tight monthly quota stretches the poll interval beyond the configured default."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_API_KEY: "1|secret"},
+        options={CONF_STATIONS: [ID_A], CONF_SCAN_INTERVAL: 10},
+    )
+    mock_api(
+        aioclient_mock,
+        headers={"x-api-key-status": "ok", "x-quota-limit": "300", "x-quota-used": "10"},
+    )
+    await _setup(hass, entry)
+    # len([ID_A]) * (1 + 1/3) requests/cycle, 31*24*60 minutes/month, 90% of a 300 quota.
+    assert entry.runtime_data.update_interval == timedelta(minutes=221)
+
+
 async def test_unload(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, entry: MockConfigEntry
 ) -> None:

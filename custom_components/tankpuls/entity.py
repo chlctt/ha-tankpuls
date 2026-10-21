@@ -19,9 +19,13 @@ class TankpulsStationEntity(CoordinatorEntity[TankpulsCoordinator]):
         """Initialize."""
         super().__init__(coordinator)
         self._station_id = station_id
-        station = coordinator.data[station_id].station
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, station_id)},
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return device info, refreshed from the latest station data."""
+        station = self.coordinator.data[self._station_id].station
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._station_id)},
             name=station.name,
             manufacturer=station.brand or None,
             model="Tankstelle",

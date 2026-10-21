@@ -20,9 +20,18 @@ async def async_setup_entry(
     entry: TankpulsConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Set up one status sensor per station."""
+    """Set up one status sensor per station; stations appearing later are added dynamically."""
     coordinator = entry.runtime_data
-    async_add_entities(StationOpenSensor(coordinator, sid) for sid in coordinator.data)
+    known: set[str] = set()
+
+    def _add_new() -> None:
+        new_ids = [sid for sid in (coordinator.data or {}) if sid not in known]
+        if new_ids:
+            known.update(new_ids)
+            async_add_entities(StationOpenSensor(coordinator, sid) for sid in new_ids)
+
+    _add_new()
+    entry.async_on_unload(coordinator.async_add_listener(_add_new))
 
 
 class StationOpenSensor(TankpulsStationEntity, BinarySensorEntity):
