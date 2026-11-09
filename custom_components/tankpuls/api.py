@@ -11,7 +11,7 @@ import math
 import re
 import time
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta, tzinfo
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import aiohttp
@@ -75,8 +75,8 @@ class FuelStats:
 
     average: float
     minimum: float
-    cheapest_hour: int  # local hour of day, 0-23
-    cheapest_hour_average: float
+    cheapest_start: datetime | None  # start of the cheapest full clock hour
+    cheapest_average: float | None
 
 
 @dataclass(slots=True)
@@ -142,15 +142,14 @@ def cents_to_eur(price_cents: Any) -> float | None:
     return cents / 1000
 
 
-def fuel_stats(
-    history: list[Price], now: datetime, tz: tzinfo, days: int = 7
-) -> dict[str, FuelStats]:
+def fuel_stats(history: list[Price], now: datetime, days: int = 7) -> dict[str, FuelStats]:
     """Weight every price by how long it was valid within the last `days` days.
 
-    The cheapest hour is the local hour of day with the lowest average price.
+    The cheapest hour is the full clock hour (e.g. Tue 18:00-19:00) with the lowest
+    average price; hours without complete price data are skipped.
     """
     start = now - timedelta(days=days)
-    # fuel -> [weighted sum, seconds, minimum, {hour: [weighted sum, seconds]}]
+    # fuel -> [weighted sum, seconds, minimum, {hour start: [weighted sum, seconds]}]
     acc: dict[str, list[Any]] = {}
     for item in history:
         begin = max(item.valid_from or start, start)
@@ -163,9 +162,10 @@ def fuel_stats(
         while t < end:
             # ponytail: UTC hour boundaries equal local ones only for whole-hour
             # offsets (true for Germany); split on local boundaries if that changes.
-            step = min(end, t.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+            hour_start = t.replace(minute=0, second=0, microsecond=0)
+            step = min(end, hour_start + timedelta(hours=1))
             seconds = (step - t).total_seconds()
-            hour = data[3].setdefault(t.astimezone(tz).hour, [0.0, 0.0])
+            hour = data[3].setdefault(hour_start, [0.0, 0.0])
             hour[0] += item.price * seconds
             hour[1] += seconds
             data[0] += item.price * seconds
@@ -173,12 +173,13 @@ def fuel_stats(
             t = step
     stats: dict[str, FuelStats] = {}
     for fuel, (total, seconds, minimum, hours) in acc.items():
-        best = min(hours, key=lambda h: hours[h][0] / hours[h][1])
+        full = {h: v[0] / v[1] for h, v in hours.items() if v[1] >= 3599.999}
+        best = min(full, key=full.__getitem__) if full else None
         stats[fuel] = FuelStats(
             average=round(total / seconds, 4),
             minimum=minimum,
-            cheapest_hour=best,
-            cheapest_hour_average=round(hours[best][0] / hours[best][1], 4),
+            cheapest_start=best,
+            cheapest_average=round(full[best], 4) if best else None,
         )
     return stats
 

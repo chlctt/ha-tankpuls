@@ -175,9 +175,7 @@ class TankpulsCoordinator(DataUpdateCoordinator[dict[str, StationData]]):
                 except TankpulsError as err:
                     LOGGER.debug("History of station %s failed: %s", station_id, err)
                 else:
-                    stats = fuel_stats(
-                        history, dt_util.utcnow(), dt_util.get_default_time_zone(), HISTORY_DAYS
-                    )
+                    stats = fuel_stats(history, dt_util.utcnow(), HISTORY_DAYS)
         return StationData(station, prices, stats=stats)
 
     def _adapt_interval(self) -> None:

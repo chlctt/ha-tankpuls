@@ -19,6 +19,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.tankpuls.const import (
     CONF_API_KEY,
+    CONF_SCAN_INTERVAL,
     CONF_STATIONS,
     DOMAIN,
     ISSUE_INVALID_KEY,
@@ -87,8 +88,9 @@ async def test_stats_sensors(
     assert average.attributes["unit_of_measurement"] == "EUR"
     assert hass.states.get("sensor.esso_tankstelle_super_e10_7_day_low").state == "1.999"
     cheapest = hass.states.get("sensor.esso_tankstelle_super_e10_cheapest_hour")
-    assert cheapest.attributes["average_price"] <= 2.049
-    assert ":00–" in cheapest.state
+    assert 1.999 <= cheapest.attributes["average_price"] <= 2.049
+    assert cheapest.attributes["device_class"] == "timestamp"
+    assert dt_util.parse_datetime(cheapest.state).minute == 0
     # No history for E5 -> no statistics sensors.
     assert hass.states.get("sensor.esso_tankstelle_super_e5_7_day_average") is None
 
@@ -247,6 +249,44 @@ async def test_deselected_station_device_removed(
     await hass.async_block_till_done()
     assert registry.async_get_device_by_identifier((DOMAIN, ID_B), entry.entry_id) is None
     assert registry.async_get_device_by_identifier((DOMAIN, ID_A), entry.entry_id)
+
+
+async def test_adapts_interval_to_quota(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A tight monthly quota stretches the poll interval beyond the configured default."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_API_KEY: "1|secret"},
+        options={CONF_STATIONS: [ID_A], CONF_SCAN_INTERVAL: 10},
+    )
+    mock_api(
+        aioclient_mock,
+        headers={"x-api-key-status": "ok", "x-quota-limit": "300", "x-quota-used": "10"},
+    )
+    await _setup(hass, entry)
+    # 1 station * (1 + 2/3) requests/cycle, 31*24*60 minutes/month, 90% of a 300 quota.
+    assert entry.runtime_data.update_interval == timedelta(minutes=276)
+
+
+async def test_late_station_gets_status_sensor(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """A station failing on the first refresh gets its status sensor once it recovers."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={CONF_API_KEY: None}, options={CONF_STATIONS: [ID_A, ID_B]}
+    )
+    mock_api(aioclient_mock, (ID_A,))
+    aioclient_mock.get(f"{BASE}/api/prices/{ID_B}/current", status=500)
+    await _setup(hass, entry)
+    assert len(hass.states.async_entity_ids("binary_sensor")) == 1
+
+    aioclient_mock.clear_requests()
+    mock_api(aioclient_mock, (ID_A, ID_B))
+    await _next_update(hass, freezer)
+    assert len(hass.states.async_entity_ids("binary_sensor")) == 2
 
 
 async def test_unload(

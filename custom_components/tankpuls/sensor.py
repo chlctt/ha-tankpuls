@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -134,6 +134,7 @@ class StatsSensor(TankpulsStationEntity, SensorEntity):
         self._attr_translation_placeholders = {"fuel": FUEL_NAMES[fuel]}
         if kind == "cheapest_hour_7d":
             self._attr_icon = "mdi:clock-check-outline"
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
         else:
             self._attr_icon = "mdi:chart-line"
             self._attr_native_unit_of_measurement = "EUR"
@@ -146,7 +147,7 @@ class StatsSensor(TankpulsStationEntity, SensorEntity):
         return data.stats.get(self._fuel) if data else None
 
     @property
-    def native_value(self) -> float | str | None:
+    def native_value(self) -> float | datetime | None:
         """Return the statistic."""
         stats = self._stats
         if stats is None:
@@ -155,16 +156,18 @@ class StatsSensor(TankpulsStationEntity, SensorEntity):
             return stats.average
         if self._kind == "minimum_7d":
             return stats.minimum
-        hour = stats.cheapest_hour
-        return f"{hour:02d}:00–{(hour + 1) % 24:02d}:00"
+        return stats.cheapest_start
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return the average price within the cheapest hour."""
+        """Return end and average price of the cheapest hour."""
         stats = self._stats
-        if stats is None or self._kind != "cheapest_hour_7d":
+        if stats is None or stats.cheapest_start is None or self._kind != "cheapest_hour_7d":
             return None
-        return {"hour": stats.cheapest_hour, "average_price": stats.cheapest_hour_average}
+        return {
+            "end": (stats.cheapest_start + timedelta(hours=1)).isoformat(),
+            "average_price": stats.cheapest_average,
+        }
 
 
 class LatestPriceReportSensor(CoordinatorEntity[TankpulsCoordinator], SensorEntity):

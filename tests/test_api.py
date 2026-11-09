@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -138,20 +137,23 @@ async def test_key_status_header(hass: HomeAssistant, aioclient_mock: AiohttpCli
 
 
 def test_fuel_stats() -> None:
-    """Prices are weighted by duration, clipped to the window, bucketed by local hour."""
-    now = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
+    """Prices are weighted by duration, clipped to the window, bucketed by clock hour."""
+    now = datetime(2026, 11, 9, 12, 30, tzinfo=UTC)
     h = timedelta(hours=1)
+    m = timedelta(minutes=1)
     history = [
-        Price("e10", 2.0, now - 2 * h, None),  # 10:00-12:00 UTC = 11-13 local
-        Price("e10", 1.8, now - 3 * h, now - 2 * h),  # 09:00 UTC = 10 local
+        Price("e10", 2.0, now - 90 * m, None),  # 11:00-12:30
+        Price("e10", 1.8, now - 120 * m, now - 90 * m),  # 10:30-11:00
+        Price("e10", 1.9, now - 150 * m, now - 120 * m),  # 10:00-10:30
         Price("e10", 1.5, now - 9 * 24 * h, now - 8 * 24 * h),  # outside the window
-        Price("diesel", 1.7, now - 30 * 60 * timedelta(seconds=1), None),
+        Price("diesel", 1.7, now - 20 * m, None),  # no full hour
     ]
-    stats = fuel_stats(history, now, ZoneInfo("Europe/Berlin"))
+    stats = fuel_stats(history, now)
     e10 = stats["e10"]
-    assert e10.average == round((2.0 * 2 + 1.8) / 3, 4)
+    assert e10.average == round((2.0 * 90 + 1.8 * 30 + 1.9 * 30) / 150, 4)
     assert e10.minimum == 1.8
-    assert e10.cheapest_hour == 10
-    assert e10.cheapest_hour_average == 1.8
-    assert stats["diesel"].cheapest_hour == 12
-    assert fuel_stats([], now, UTC) == {}
+    # 12:00-12:30 at 2.0 is incomplete and must not win.
+    assert e10.cheapest_start == datetime(2026, 11, 9, 10, 0, tzinfo=UTC)
+    assert e10.cheapest_average == 1.85
+    assert stats["diesel"].cheapest_start is None
+    assert fuel_stats([], now) == {}

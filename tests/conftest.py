@@ -79,17 +79,13 @@ def prices_json(station_id: str = ID_A, valid_from: str | None = None) -> dict:
 
 def history_json() -> dict:
     """Return a /history/{id} payload: E10 1.999 for 1 h, then 2.049 until now."""
+    one, two = hours_ago(1), hours_ago(2)
     return {
         "since": hours_ago(168),
         "count": 2,
         "items": [
-            {"fuel": "e10", "priceCents": 2049, "validFrom": hours_ago(1), "validTo": None},
-            {
-                "fuel": "e10",
-                "priceCents": 1999,
-                "validFrom": hours_ago(2),
-                "validTo": hours_ago(1),
-            },
+            {"fuel": "e10", "priceCents": 2049, "validFrom": one, "validTo": None},
+            {"fuel": "e10", "priceCents": 1999, "validFrom": two, "validTo": one},
         ],
     }
 

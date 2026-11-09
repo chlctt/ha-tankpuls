@@ -31,7 +31,7 @@ Pro Tankstelle ein Gerät mit:
 | `sensor.<station>_super_e5` / `_super_e10` / `_diesel` | Preis in EUR/l (3 Nachkommastellen), nur für Kraftstoffe, die die Station meldet. Attribute: `brand`, `station_name`, `street`, `postcode`, `city`, `fuel_type`, `price_valid_from`, `external_id` (Tankerkönig-ID), bei „auf Karte anzeigen“ `latitude`/`longitude`. |
 | „Super E10 Ø 7 Tage“ (je Kraftstoff) | Zeitgewichteter Durchschnittspreis der letzten 7 Tage in EUR/l – jeder Preis zählt so lange, wie er galt. |
 | „Super E10 Tiefstpreis 7 Tage“ (je Kraftstoff) | Niedrigster Preis der letzten 7 Tage in EUR/l. |
-| „Super E10 günstigste Stunde“ (je Kraftstoff) | Uhrzeit (z. B. `18:00–19:00`), die über die letzten 7 Tage im Schnitt am günstigsten war. Attribute: `hour` (0–23), `average_price`. |
+| „Super E10 günstigste Stunde“ (je Kraftstoff) | Beginn der günstigsten vollen Stunde der letzten 7 Tage (Zeitstempel, z. B. Di 18:00). Attribute: `end`, `average_price` (Durchschnittspreis in dieser Stunde). Nur Stunden mit lückenlosen Preisdaten zählen. |
 | `binary_sensor.<station>_open` | an = geöffnet, aus = geschlossen, unbekannt = keine Preismeldungen |
 
 Die 7-Tage-Werte kommen aus dem Preisverlauf (`/api/history`) und werden zusammen mit den Stammdaten
