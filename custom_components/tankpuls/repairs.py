@@ -35,10 +35,10 @@ class InvalidKeyRepairFlow(RepairsFlow):
             entry = self.hass.config_entries.async_get_entry(self._entry_id)
             if entry is not None:
                 key = (user_input.get(CONF_API_KEY) or "").strip() or None
+                # The update listener reloads the entry.
                 self.hass.config_entries.async_update_entry(
                     entry, data={**entry.data, CONF_API_KEY: key}
                 )
-                await self.hass.config_entries.async_reload(entry.entry_id)
             return self.async_create_entry(data={})
         return self.async_show_form(
             step_id="confirm",
@@ -65,7 +65,9 @@ class StationGoneRepairFlow(ConfirmRepairFlow):
                     s for s in entry.options.get(CONF_STATIONS, []) if s != self._station_id
                 ]
                 registry = dr.async_get(self.hass)
-                if device := registry.async_get_device(identifiers={(DOMAIN, self._station_id)}):
+                if device := registry.async_get_device_by_identifier(
+                    (DOMAIN, self._station_id), entry.entry_id
+                ):
                     registry.async_remove_device(device.id)
                 self.hass.config_entries.async_update_entry(
                     entry, options={**entry.options, CONF_STATIONS: stations}

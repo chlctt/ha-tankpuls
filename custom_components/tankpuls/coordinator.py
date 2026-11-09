@@ -15,18 +15,21 @@ from homeassistant.util import dt as dt_util
 
 from .api import (
     KEY_STATUS_OK,
+    FuelStats,
     Price,
     Station,
     TankpulsClient,
     TankpulsError,
     TankpulsNotFoundError,
     TankpulsRateLimitError,
+    fuel_stats,
 )
 from .const import (
     CONF_SCAN_INTERVAL,
     CONF_STATIONS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    HISTORY_DAYS,
     ISSUE_INVALID_KEY,
     ISSUE_STALE_DATA,
     ISSUE_STATION_GONE,
@@ -51,6 +54,7 @@ class StationData:
     station: Station
     prices: dict[str, Price] = field(default_factory=dict)
     available: bool = True
+    stats: dict[str, FuelStats] = field(default_factory=dict)
 
     @property
     def is_gone(self) -> bool:
@@ -125,7 +129,7 @@ class TankpulsCoordinator(DataUpdateCoordinator[dict[str, StationData]]):
                 errors.append(result)
                 old = previous.get(sid)
                 if old is not None:
-                    data[sid] = StationData(old.station, old.prices, available=False)
+                    data[sid] = StationData(old.station, old.prices, False, old.stats)
                 continue
             data[sid] = result
 
@@ -163,14 +167,24 @@ class TankpulsCoordinator(DataUpdateCoordinator[dict[str, StationData]]):
                     )
                     station.is_active = False
                 self._stations[station_id] = station
-        return StationData(station, prices)
+            stats = previous.stats if previous else {}
+            # The 7-day statistics change slowly: refresh them with the master data.
+            if refresh or not stats:
+                try:
+                    history = await self.client.get_history(station_id, HISTORY_DAYS)
+                except TankpulsError as err:
+                    LOGGER.debug("History of station %s failed: %s", station_id, err)
+                else:
+                    stats = fuel_stats(history, dt_util.utcnow(), HISTORY_DAYS)
+        return StationData(station, prices, stats=stats)
 
     def _adapt_interval(self) -> None:
         """Adapt the interval to the monthly quota when an API key is used."""
         interval = self._base_interval
         quota = self.client.meta.quota_limit
         if self.client.has_api_key and quota:
-            requests_per_cycle = len(self.station_ids) * (1 + 1 / STATION_REFRESH_CYCLES)
+            # prices every cycle, station + history every Nth cycle
+            requests_per_cycle = len(self.station_ids) * (1 + 2 / STATION_REFRESH_CYCLES)
             minutes_per_month = 31 * 24 * 60
             needed = math.ceil(minutes_per_month * requests_per_cycle / (quota * QUOTA_SHARE))
             interval = max(interval, needed)

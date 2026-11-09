@@ -167,3 +167,19 @@ async def test_reconfigure_key(
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
     assert entry.data[CONF_API_KEY] == "2|def"
+
+
+async def test_reconfigure_reloads_loaded_entry(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, entry: MockConfigEntry
+) -> None:
+    """The update listener reloads a running entry with the new key."""
+    mock_api(aioclient_mock, headers={"x-api-key-status": "ok"})
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert not entry.runtime_data.client.has_api_key
+
+    result = await entry.start_reconfigure_flow(hass)
+    await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_API_KEY: "2|def"})
+    await hass.async_block_till_done()
+    assert entry.runtime_data.client.has_api_key

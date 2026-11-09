@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -16,6 +16,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import FuelStats
 from .const import ATTRIBUTION, CONF_SHOW_ON_MAP, DOMAIN, FUELS
 from .coordinator import TankpulsConfigEntry, TankpulsCoordinator
 from .entity import TankpulsStationEntity
@@ -41,6 +42,12 @@ async def async_setup_entry(
                 if fuel in item.prices and key not in known:
                     known.add(key)
                     new.append(PriceSensor(coordinator, station_id, fuel, show_on_map))
+                key = (station_id, f"{fuel}_stats")
+                if fuel in item.stats and key not in known:
+                    known.add(key)
+                    new.extend(
+                        StatsSensor(coordinator, station_id, fuel, kind) for kind in STATS_KINDS
+                    )
         if new:
             async_add_entities(new)
 
@@ -106,6 +113,61 @@ class PriceSensor(TankpulsStationEntity, SensorEntity):
             attrs[CONF_LATITUDE] = station.lat
             attrs[CONF_LONGITUDE] = station.lng
         return attrs
+
+
+FUEL_NAMES = {"e5": "Super E5", "e10": "Super E10", "diesel": "Diesel"}
+STATS_KINDS = ("average_7d", "minimum_7d", "cheapest_hour_7d")
+
+
+class StatsSensor(TankpulsStationEntity, SensorEntity):
+    """Average, minimum or cheapest hour of one fuel over the last 7 days."""
+
+    def __init__(
+        self, coordinator: TankpulsCoordinator, station_id: str, fuel: str, kind: str
+    ) -> None:
+        """Initialize."""
+        super().__init__(coordinator, station_id)
+        self._fuel = fuel
+        self._kind = kind
+        self._attr_unique_id = f"{station_id}_{fuel}_{kind}"
+        self._attr_translation_key = kind
+        self._attr_translation_placeholders = {"fuel": FUEL_NAMES[fuel]}
+        if kind == "cheapest_hour_7d":
+            self._attr_icon = "mdi:clock-check-outline"
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+        else:
+            self._attr_icon = "mdi:chart-line"
+            self._attr_native_unit_of_measurement = "EUR"
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 3
+
+    @property
+    def _stats(self) -> FuelStats | None:
+        data = self.station_data
+        return data.stats.get(self._fuel) if data else None
+
+    @property
+    def native_value(self) -> float | datetime | None:
+        """Return the statistic."""
+        stats = self._stats
+        if stats is None:
+            return None
+        if self._kind == "average_7d":
+            return stats.average
+        if self._kind == "minimum_7d":
+            return stats.minimum
+        return stats.cheapest_start
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return end and average price of the cheapest hour."""
+        stats = self._stats
+        if stats is None or stats.cheapest_start is None or self._kind != "cheapest_hour_7d":
+            return None
+        return {
+            "end": (stats.cheapest_start + timedelta(hours=1)).isoformat(),
+            "average_price": stats.cheapest_average,
+        }
 
 
 class LatestPriceReportSensor(CoordinatorEntity[TankpulsCoordinator], SensorEntity):

@@ -11,7 +11,7 @@ import math
 import re
 import time
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import aiohttp
@@ -61,11 +61,22 @@ class ApiMeta:
 
 @dataclass(slots=True)
 class Price:
-    """Current price of one fuel."""
+    """Price of one fuel; valid_to is None while it is still valid."""
 
     fuel: str
     price: float  # EUR per liter
     valid_from: datetime | None
+    valid_to: datetime | None = None
+
+
+@dataclass(slots=True)
+class FuelStats:
+    """Time-weighted statistics of one fuel over a period."""
+
+    average: float
+    minimum: float
+    cheapest_start: datetime | None  # start of the cheapest full clock hour
+    cheapest_average: float | None
 
 
 @dataclass(slots=True)
@@ -119,7 +130,7 @@ def parse_timestamp(value: str | None) -> datetime | None:
 def _to_int(value: Any) -> int | None:
     try:
         return int(value)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
 
 
@@ -129,6 +140,48 @@ def cents_to_eur(price_cents: Any) -> float | None:
     if cents is None or cents <= 0:
         return None
     return cents / 1000
+
+
+def fuel_stats(history: list[Price], now: datetime, days: int = 7) -> dict[str, FuelStats]:
+    """Weight every price by how long it was valid within the last `days` days.
+
+    The cheapest hour is the full clock hour (e.g. Tue 18:00-19:00) with the lowest
+    average price; hours without complete price data are skipped.
+    """
+    start = now - timedelta(days=days)
+    # fuel -> [weighted sum, seconds, minimum, {hour start: [weighted sum, seconds]}]
+    acc: dict[str, list[Any]] = {}
+    for item in history:
+        begin = max(item.valid_from or start, start)
+        end = min(item.valid_to or now, now)
+        if end <= begin:
+            continue
+        data = acc.setdefault(item.fuel, [0.0, 0.0, item.price, {}])
+        data[2] = min(data[2], item.price)
+        t = begin
+        while t < end:
+            # ponytail: UTC hour boundaries equal local ones only for whole-hour
+            # offsets (true for Germany); split on local boundaries if that changes.
+            hour_start = t.replace(minute=0, second=0, microsecond=0)
+            step = min(end, hour_start + timedelta(hours=1))
+            seconds = (step - t).total_seconds()
+            hour = data[3].setdefault(hour_start, [0.0, 0.0])
+            hour[0] += item.price * seconds
+            hour[1] += seconds
+            data[0] += item.price * seconds
+            data[1] += seconds
+            t = step
+    stats: dict[str, FuelStats] = {}
+    for fuel, (total, seconds, minimum, hours) in acc.items():
+        full = {h: v[0] / v[1] for h, v in hours.items() if v[1] >= 3599.999}
+        best = min(full, key=full.__getitem__) if full else None
+        stats[fuel] = FuelStats(
+            average=round(total / seconds, 4),
+            minimum=minimum,
+            cheapest_start=best,
+            cheapest_average=round(full[best], 4) if best else None,
+        )
+    return stats
 
 
 def parse_station(raw: dict[str, Any]) -> Station:
@@ -284,6 +337,30 @@ class TankpulsClient:
                 continue
             prices[fuel] = Price(fuel, value, parse_timestamp(item.get("validFrom")))
         return prices
+
+    async def get_history(self, station_id: str, days: int = 7) -> list[Price]:
+        """Return every price change of the last `days` days, newest first."""
+        data = await self._request(f"/api/history/{station_id}", {"days": days})
+        items = data.get("items") if isinstance(data, dict) else None
+        if not isinstance(items, list):
+            raise TankpulsApiError("Unexpected history payload")
+        history: list[Price] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            value = cents_to_eur(item.get("priceCents"))
+            fuel = item.get("fuel")
+            if value is None or not fuel:
+                continue
+            history.append(
+                Price(
+                    fuel,
+                    value,
+                    parse_timestamp(item.get("validFrom")),
+                    parse_timestamp(item.get("validTo")),
+                )
+            )
+        return history
 
     @staticmethod
     def _stations(data: Any) -> list[Station]:
