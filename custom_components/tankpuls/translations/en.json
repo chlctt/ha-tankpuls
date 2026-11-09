@@ -83,6 +83,15 @@
       },
       "latest_price_report": {
         "name": "Latest price report"
+      },
+      "average_7d": {
+        "name": "{fuel} 7-day average"
+      },
+      "minimum_7d": {
+        "name": "{fuel} 7-day low"
+      },
+      "cheapest_hour_7d": {
+        "name": "{fuel} cheapest hour"
       }
     },
     "binary_sensor": {

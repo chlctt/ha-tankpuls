@@ -4,9 +4,10 @@ Kraftstoffpreise (Super E5, Super E10, Diesel) und Öffnungsstatus deutscher Tan
 [TankPuls-API](https://api.tankpuls.de/docs). Funktional an die Core-Integration `tankerkoenig`
 angelehnt, aber unabhängig von der Tankerkönig-API.
 
-## Installation (HACS)
+## Installation (Marketplace / HACS)
 
-1. HACS → Benutzerdefinierte Repositories → `https://github.com/chlctt/ha-tankpuls` (Kategorie *Integration*).
+1. Ab Home Assistant 2026.11: Einstellungen → Marketplace → Benutzerdefinierte Repositories (davor: HACS →
+   Benutzerdefinierte Repositories) → `https://github.com/chlctt/ha-tankpuls` (Kategorie *Integration*).
 2. TankPuls installieren, Home Assistant neu starten.
 3. Einstellungen → Geräte & Dienste → Integration hinzufügen → **TankPuls**.
 
@@ -28,7 +29,13 @@ Pro Tankstelle ein Gerät mit:
 | Entität | Beschreibung |
 |---|---|
 | `sensor.<station>_super_e5` / `_super_e10` / `_diesel` | Preis in EUR/l (3 Nachkommastellen), nur für Kraftstoffe, die die Station meldet. Attribute: `brand`, `station_name`, `street`, `postcode`, `city`, `fuel_type`, `price_valid_from`, `external_id` (Tankerkönig-ID), bei „auf Karte anzeigen“ `latitude`/`longitude`. |
+| „Super E10 Ø 7 Tage“ (je Kraftstoff) | Zeitgewichteter Durchschnittspreis der letzten 7 Tage in EUR/l – jeder Preis zählt so lange, wie er galt. |
+| „Super E10 Tiefstpreis 7 Tage“ (je Kraftstoff) | Niedrigster Preis der letzten 7 Tage in EUR/l. |
+| „Super E10 günstigste Stunde“ (je Kraftstoff) | Uhrzeit (z. B. `18:00–19:00`), die über die letzten 7 Tage im Schnitt am günstigsten war. Attribute: `hour` (0–23), `average_price`. |
 | `binary_sensor.<station>_open` | an = geöffnet, aus = geschlossen, unbekannt = keine Preismeldungen |
+
+Die 7-Tage-Werte kommen aus dem Preisverlauf (`/api/history`) und werden zusammen mit den Stammdaten
+aktualisiert (jeder 3. Abruf, Standard: alle 30 min).
 
 Zusätzlich ein Diagnose-Sensor **„Neueste Preismeldung“** (Zeitstempel der aktuellsten Preisänderung über alle
 Stationen). Meldet tagsüber (6–22 Uhr) seit über 3 Stunden keine Station einen neuen Preis, erscheint ein

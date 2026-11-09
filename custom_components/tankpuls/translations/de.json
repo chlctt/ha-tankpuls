@@ -59,7 +59,10 @@
       "e5": { "name": "Super E5" },
       "e10": { "name": "Super E10" },
       "diesel": { "name": "Diesel" },
-      "latest_price_report": { "name": "Neueste Preismeldung" }
+      "latest_price_report": { "name": "Neueste Preismeldung" },
+      "average_7d": { "name": "{fuel} Ø 7 Tage" },
+      "minimum_7d": { "name": "{fuel} Tiefstpreis 7 Tage" },
+      "cheapest_hour_7d": { "name": "{fuel} günstigste Stunde" }
     },
     "binary_sensor": { "status": { "name": "Geöffnet" } }
   },

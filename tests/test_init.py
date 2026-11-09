@@ -26,7 +26,16 @@ from custom_components.tankpuls.const import (
     ISSUE_STATION_GONE,
 )
 
-from .conftest import BASE, ID_A, ID_B, hours_ago, mock_api, prices_json, station_json
+from .conftest import (
+    BASE,
+    ID_A,
+    ID_B,
+    history_json,
+    hours_ago,
+    mock_api,
+    prices_json,
+    station_json,
+)
 
 
 async def _next_update(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> None:
@@ -65,6 +74,37 @@ async def test_entities(
     assert hass.states.get("sensor.tankpuls_latest_price_report").state != "unknown"
 
 
+async def test_stats_sensors(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, entry: MockConfigEntry
+) -> None:
+    """7-day average, low and cheapest hour are created from the history."""
+    mock_api(aioclient_mock)
+    await _setup(hass, entry)
+
+    average = hass.states.get("sensor.esso_tankstelle_super_e10_7_day_average")
+    assert average is not None
+    assert float(average.state) == 2.024
+    assert average.attributes["unit_of_measurement"] == "EUR"
+    assert hass.states.get("sensor.esso_tankstelle_super_e10_7_day_low").state == "1.999"
+    cheapest = hass.states.get("sensor.esso_tankstelle_super_e10_cheapest_hour")
+    assert cheapest.attributes["average_price"] <= 2.049
+    assert ":00–" in cheapest.state
+    # No history for E5 -> no statistics sensors.
+    assert hass.states.get("sensor.esso_tankstelle_super_e5_7_day_average") is None
+
+
+async def test_history_failure_keeps_prices(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, entry: MockConfigEntry
+) -> None:
+    """A failing history request does not affect the price sensors."""
+    aioclient_mock.get(f"{BASE}/api/prices/{ID_A}/current", json=prices_json())
+    aioclient_mock.get(f"{BASE}/api/stations/{ID_A}", json=station_json())
+    aioclient_mock.get(f"{BASE}/api/history/{ID_A}", status=500)
+    await _setup(hass, entry)
+    assert hass.states.get("sensor.esso_tankstelle_super_e10").state == "2.049"
+    assert hass.states.get("sensor.esso_tankstelle_super_e10_7_day_average") is None
+
+
 async def test_closed_and_no_prices(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, entry: MockConfigEntry
 ) -> None:
@@ -73,6 +113,7 @@ async def test_closed_and_no_prices(
     aioclient_mock.clear_requests()
     aioclient_mock.get(f"{BASE}/api/prices/{ID_A}/current", json=prices_json())
     aioclient_mock.get(f"{BASE}/api/stations/{ID_A}", json=station_json(status="closed"))
+    aioclient_mock.get(f"{BASE}/api/history/{ID_A}", json=history_json())
     await _setup(hass, entry)
     assert hass.states.get("binary_sensor.esso_tankstelle_open").state == "off"
 
@@ -136,6 +177,7 @@ async def test_station_gone_issue(
         f"{BASE}/api/stations/{ID_A}",
         json=station_json(is_active=False, status="no_prices", price_cents=None),
     )
+    aioclient_mock.get(f"{BASE}/api/history/{ID_A}", json={"since": "", "count": 0, "items": []})
     await _setup(hass, entry)
     issue = ir.async_get(hass).async_get_issue(
         DOMAIN, f"{ISSUE_STATION_GONE}_{entry.entry_id}_{ID_A}"
@@ -158,6 +200,7 @@ async def test_stale_data_issue(
         f"{BASE}/api/prices/{ID_A}/current", json=prices_json(valid_from=hours_ago(5))
     )
     aioclient_mock.get(f"{BASE}/api/stations/{ID_A}", json=station_json())
+    aioclient_mock.get(f"{BASE}/api/history/{ID_A}", json=history_json())
     await _setup(hass, entry)
     assert ir.async_get(hass).async_get_issue(DOMAIN, f"{ISSUE_STALE_DATA}_{entry.entry_id}")
 
@@ -198,12 +241,12 @@ async def test_deselected_station_device_removed(
     mock_api(aioclient_mock, (ID_A, ID_B))
     await _setup(hass, entry)
     registry = dr.async_get(hass)
-    assert registry.async_get_device(identifiers={(DOMAIN, ID_B)})
+    assert registry.async_get_device_by_identifier((DOMAIN, ID_B), entry.entry_id)
 
     hass.config_entries.async_update_entry(entry, options={CONF_STATIONS: [ID_A]})
     await hass.async_block_till_done()
-    assert registry.async_get_device(identifiers={(DOMAIN, ID_B)}) is None
-    assert registry.async_get_device(identifiers={(DOMAIN, ID_A)})
+    assert registry.async_get_device_by_identifier((DOMAIN, ID_B), entry.entry_id) is None
+    assert registry.async_get_device_by_identifier((DOMAIN, ID_A), entry.entry_id)
 
 
 async def test_unload(

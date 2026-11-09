@@ -77,6 +77,23 @@ def prices_json(station_id: str = ID_A, valid_from: str | None = None) -> dict:
     }
 
 
+def history_json() -> dict:
+    """Return a /history/{id} payload: E10 1.999 for 1 h, then 2.049 until now."""
+    return {
+        "since": hours_ago(168),
+        "count": 2,
+        "items": [
+            {"fuel": "e10", "priceCents": 2049, "validFrom": hours_ago(1), "validTo": None},
+            {
+                "fuel": "e10",
+                "priceCents": 1999,
+                "validFrom": hours_ago(2),
+                "validTo": hours_ago(1),
+            },
+        ],
+    }
+
+
 def mock_api(
     aioclient_mock: AiohttpClientMocker,
     station_ids: tuple[str, ...] = (ID_A,),
@@ -89,6 +106,7 @@ def mock_api(
             f"{BASE}/api/prices/{sid}/current", json=prices_json(sid), headers=headers
         )
         aioclient_mock.get(f"{BASE}/api/stations/{sid}", json=station_json(sid), headers=headers)
+        aioclient_mock.get(f"{BASE}/api/history/{sid}", json=history_json(), headers=headers)
 
 
 @pytest.fixture
@@ -111,4 +129,13 @@ def hours_ago(hours: float) -> str:
     return (datetime.now(UTC) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
-__all__ = ["BASE", "ID_A", "ID_B", "hours_ago", "mock_api", "prices_json", "station_json"]
+__all__ = [
+    "BASE",
+    "ID_A",
+    "ID_B",
+    "history_json",
+    "hours_ago",
+    "mock_api",
+    "prices_json",
+    "station_json",
+]

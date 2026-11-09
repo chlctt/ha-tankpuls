@@ -27,6 +27,8 @@ MAX_SEARCH_RESULTS = 100
 
 # The station master data (status, address) is refreshed every Nth cycle.
 STATION_REFRESH_CYCLES = 3
+# Period of the price statistics (average, minimum, cheapest hour).
+HISTORY_DAYS = 7
 # Concurrent requests per update cycle.
 MAX_CONCURRENT_REQUESTS = 4
 # Share of the monthly quota the integration may use when an API key is set.

@@ -58,4 +58,5 @@ def _remove_stale_devices(hass: HomeAssistant, entry: TankpulsConfigEntry) -> No
     for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
         idents = {i for d, i in device.identifiers if d == DOMAIN}
         if idents and not idents & (configured | {entry.entry_id}):
-            registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+            # Devices belong to exactly one config entry since HA 2026.8.
+            registry.async_remove_device(device.id)

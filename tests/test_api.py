@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -10,12 +11,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.tankpuls.api import (
+    Price,
     TankpulsApiError,
     TankpulsClient,
     TankpulsConnectionError,
     TankpulsNotFoundError,
     TankpulsRateLimitError,
     cents_to_eur,
+    fuel_stats,
     parse_timestamp,
 )
 
@@ -132,3 +135,23 @@ async def test_key_status_header(hass: HomeAssistant, aioclient_mock: AiohttpCli
     )
     assert await client.check_key() == "ok"
     assert client.meta.quota_limit == 10000
+
+
+def test_fuel_stats() -> None:
+    """Prices are weighted by duration, clipped to the window, bucketed by local hour."""
+    now = datetime(2026, 11, 9, 12, 0, tzinfo=UTC)
+    h = timedelta(hours=1)
+    history = [
+        Price("e10", 2.0, now - 2 * h, None),  # 10:00-12:00 UTC = 11-13 local
+        Price("e10", 1.8, now - 3 * h, now - 2 * h),  # 09:00 UTC = 10 local
+        Price("e10", 1.5, now - 9 * 24 * h, now - 8 * 24 * h),  # outside the window
+        Price("diesel", 1.7, now - 30 * 60 * timedelta(seconds=1), None),
+    ]
+    stats = fuel_stats(history, now, ZoneInfo("Europe/Berlin"))
+    e10 = stats["e10"]
+    assert e10.average == round((2.0 * 2 + 1.8) / 3, 4)
+    assert e10.minimum == 1.8
+    assert e10.cheapest_hour == 10
+    assert e10.cheapest_hour_average == 1.8
+    assert stats["diesel"].cheapest_hour == 12
+    assert fuel_stats([], now, UTC) == {}
